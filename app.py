@@ -93,48 +93,47 @@ def api_otp_verify():
         query_parameters = request.args
         phone = query_parameters.get('phone')
         otp = query_parameters.get('otp')
-
-    _query = "SELECT session_id from SessionID WHERE phone_number = {0}"
-    cur = conn.cursor()
-    cur.execute(_query.format(phone))
-    db_output = cur.fetchall()
-
-    if len(db_output) == 0:
-        resp['Status'] = 'Error'
-        resp['Details'] = 'Invalid Phone number'
-        return jsonify(resp)
-    else:
-        session_id = db_output[0][0]
-
-    http_conn = http.client.HTTPConnection("2factor.in")
-    payload = ""
-    headers = {'content-type': "application/x-www-form-urlencoded"}
-    request_path = "/API/V1/9d2cacdb-f4de-11ea-9fa5-0200cd936042/SMS/VERIFY/" + session_id + "/" + otp
-    http_conn.request("GET", request_path, payload, headers)
-    res = http_conn.getresponse()
-    data = res.read()
-    json_data = json.loads(data.decode('utf-8'))
-
-    status = json_data['Status']
-
-    if status == 'Success':
-        session_id = json_data['Details']
-        _query = "DELETE FROM SessionID WHERE phone_number = {0}"
+        _query = "SELECT session_id from SessionID WHERE phone_number = {0}"
         cur = conn.cursor()
-        # print(_query.format(phone,session_id))
         cur.execute(_query.format(phone))
-        conn.commit()
-        cur.close()
-        return json_data
-    else:
-        conn.commit()
-        cur.close()
-        conn.close()
-        return json_data
+        db_output = cur.fetchall()
+
+        if len(db_output) == 0:
+            resp['Status'] = 'Error'
+            resp['Details'] = 'Invalid Phone number'
+            return jsonify(resp)
+        else:
+            session_id = db_output[0][0]
+
+        http_conn = http.client.HTTPConnection("2factor.in")
+        payload = ""
+        headers = {'content-type': "application/x-www-form-urlencoded"}
+        request_path = "/API/V1/9d2cacdb-f4de-11ea-9fa5-0200cd936042/SMS/VERIFY/" + session_id + "/" + otp
+        http_conn.request("GET", request_path, payload, headers)
+        res = http_conn.getresponse()
+        data = res.read()
+        json_data = json.loads(data.decode('utf-8'))
+
+        status = json_data['Status']
+
+        if status == 'Success':
+            session_id = json_data['Details']
+            _query = "DELETE FROM SessionID WHERE phone_number = {0}"
+            cur = conn.cursor()
+            print(_query.format(phone, session_id))
+            cur.execute(_query.format(phone))
+            conn.commit()
+            cur.close()
+            return json_data
+        else:
+            conn.commit()
+            cur.close()
+            conn.close()
+            return json_data
 
 
 @app.route('/create', methods=['POST'])
-def create_Id():
+def create_id():
     try:
         conn = mysql.connector.connect(**config)
         cur = conn.cursor()
@@ -145,12 +144,11 @@ def create_Id():
         _UUID = _json['UUID']
         _Major = _json['Major']
         _Minor = _json['Minor']
-        sqlQuery = "Insert INTO venue_data(ID,Identifier,UUID,Major,Minor) values(%s,%s,%s,%s,%s)"
-        cur = conn.cursor()
+        sql_query = "Insert INTO venue_data(ID,Identifier,UUID,Major,Minor) values(%s,%s,%s,%s,%s)"
         if _ID and _Identifier and _UUID and _Major and _Minor and request.method == 'POST':
-        # insert record in database
+            # insert record in database
             data = (_ID, _Identifier, _UUID, _Major, _Minor)
-            cur.execute(sqlQuery, data)
+            cur.execute(sql_query, data)
             conn.commit()
             res = jsonify('Record created successfully.')
             res.status_code = 200
@@ -158,13 +156,12 @@ def create_Id():
             conn.close()
             return res
         else:
+            cur.close()
+            conn.close()
             return not_found()
 
     except Exception as e:
         print(e)
-    finally:
-        cur.close()
-        conn.close()
 
 
 @app.errorhandler(404)
@@ -173,9 +170,9 @@ def not_found(error=None):
         'status': 404,
         'message': 'Not Found:' + request.url,
     }
-    resp = jsonify(message)
-    resp.status_code = 404
-    return resp
+    response_msg = jsonify(message)
+    response_msg.status_code = 404
+    return response_msg
 
 
 @app.route('/upload', methods=['POST'])
@@ -192,19 +189,17 @@ def upload_data():
             print(obj["Time_Exited"])
 
             cur.execute("Insert INTO log_data(ID,Identifier,Time_Entered,Time_Exited) values(%s,%s,%s,%s)",
-                           (obj["ID"], obj["Identifier"], obj["Time_Entered"], obj["Time_Exited"]))
+                        (obj["ID"], obj["Identifier"], obj["Time_Entered"], obj["Time_Exited"]))
 
         conn.commit()
+        cur.close()
+        conn.close()
         res = jsonify('Record created successfully.')
         res.status_code = 200
         return res
     except Exception as e:
         print(e)
-    finally:
-        cur.close()
-        conn.close()
 
 
 if __name__ == '__main__':
     app.run()
-
